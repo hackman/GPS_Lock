@@ -20,7 +20,7 @@
  *
  *
  *
- *  VERSION 0.2
+ *  VERSION 0.3
  */
 
 #include <NewSoftSerial.h>
@@ -29,12 +29,12 @@
 #define PC_SERIAL_SPEED 19200
 
 /* SIM900 configuration
-NewSoftSerial mySerial = NewSoftSerial(7, 8);
+NewSoftSerial cell = NewSoftSerial(7, 8);
 #define RELE 2
 #define CELL_SERIAL_SPEED 19200
 */
 
-NewSoftSerial mySerial = NewSoftSerial(2, 3);
+NewSoftSerial cell = NewSoftSerial(2, 3);
 #define RELE 7
 #define CELL_SERIAL_SPEED 9600
 
@@ -52,13 +52,13 @@ void setup() {
 	digitalWrite(RELE, LOW);
 
 	// Initialize the serial communication to the GPRS and PC
-	mySerial.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
+	cell.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
 	Serial.begin(PC_SERIAL_SPEED);		// the PC Serial interface boud rate
 
 	delay(500);
 	while(1) {
-		if (mySerial.available()) {
-			c = mySerial.read();
+		if (cell.available()) {
+			c = cell.read();
 			Serial.print(c);
 // SIM900 ending
 //			if ( c == 'K' ) {
@@ -84,15 +84,15 @@ void loop() {
 		if ( c = 't' ) 
 			SubmitHttpRequest();
 	}
-	if (mySerial.available())
-		Serial.write(mySerial.read());
+	if (cell.available())
+		Serial.write(cell.read());
 */
-	if ( mySerial.available() ) {
+	if ( cell.available() ) {
 		char b;
 		int j = 0;
 		buffidx = 0;
 		while (1) {
-			c = mySerial.read();
+			c = cell.read();
 
 			if ( c == -1 )
 				continue;
@@ -147,59 +147,59 @@ void loop() {
 
 
 void ShowSerialData() {
-	while(mySerial.available()!=0)
-		Serial.write(mySerial.read());
+	while(cell.available()!=0)
+		Serial.write(cell.read());
 }
 
 void SubmitHttpRequest() {
-  mySerial.println("AT+CSQ");
-  delay(100);
+	cell.println("AT+CSQ");
+	delay(100);
  
- ShowSerialData();// this code is to show the data from gprs shield, in order to easily see the process of how the gprs shield submit a http request, and the following is for this purpose too.
+	ShowSerialData();	// this code is to show the data from gprs shield, in order to easily see the process of how the gprs shield submit a http request, and the following is for this purpose too.
 
-  mySerial.println("AT+CGATT?");
-  delay(100);
+	cell.println("AT+CGATT?");
+	delay(100);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");//setting the SAPBR, the connection type is using gprs
-  delay(1000);
+	cell.println("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");	//setting the SAPBR, the connection type is using gprs
+	delay(1000);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+SAPBR=3,1,\"APN\",\"MTEL\"");//setting the APN, the second need you fill in your local apn server
-  delay(4000);
+	cell.println("AT+SAPBR=3,1,\"APN\",\"MTEL\"");	//setting the APN, the second need you fill in your local apn server
+	delay(4000);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+SAPBR=1,1");//setting the SAPBR, for detail you can refer to the AT command mamual
-  delay(2000);
+	cell.println("AT+SAPBR=1,1");	//setting the SAPBR, for detail you can refer to the AT command mamual
+	delay(2000);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+HTTPINIT"); //init the HTTP request
+	cell.println("AT+HTTPINIT");	//init the HTTP request
  
-  delay(2000); 
-  ShowSerialData();
+	delay(2000); 
+	ShowSerialData();
  
-  mySerial.println("AT+HTTPPARA=\"URL\",\"hydra.azilian.net/m.tst\"");// setting the httppara, the second parameter is the website you want to access
-  delay(1000);
+	cell.println("AT+HTTPPARA=\"URL\",\"hydra.azilian.net/m.tst\"");	// setting the httppara, the second parameter is the website you want to access
+	delay(1000);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+HTTPACTION=0");//submit the request 
-  delay(10000);//the delay is very important, the delay time is base on the return from the website, if the return datas are very large, the time required longer.
-  //while(!mySerial.available());
+	cell.println("AT+HTTPACTION=0");	//submit the request
+	delay(10000);	//the delay is very important, the delay time is base on the return from the website, if the return datas are very large, the time required longer.
+	//while(!cell.available());
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("AT+HTTPREAD");// read the data from the website you access
-  delay(300);
+	cell.println("AT+HTTPREAD");	// read the data from the website you access
+	delay(300);
  
-  ShowSerialData();
+	ShowSerialData();
  
-  mySerial.println("");
-  delay(100);
+	cell.println("");
+	delay(100);
 }
  
 int match_num(char *in, char *my) {
