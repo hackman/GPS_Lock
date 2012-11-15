@@ -1,14 +1,49 @@
-#include <NewSoftSerial.h>
-#define BUFFSIZ 90 // plenty big
-#define RELE 2
+/*
+ * Copyright (C) 2012 Marian Marinov <mm@yuhu.biz>
+ *
+ * This code was developed by Marian Marinov with the help of Ivan Karpov.
+ *
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ *
+ *
+ *  VERSION 0.2
+ */
 
+#include <NewSoftSerial.h>
+
+#define BUFFSIZ 90 // plenty big
+#define PC_SERIAL_SPEED 19200
+
+/* SIM900 configuration
 NewSoftSerial mySerial = NewSoftSerial(7, 8);
+#define RELE 2
+#define CELL_SERIAL_SPEED 19200
+*/
+
+NewSoftSerial mySerial = NewSoftSerial(2, 3);
+#define RELE 7
+#define CELL_SERIAL_SPEED 9600
 
 char *mynum  =  "359886660270";
 char *karpov =  "359885888444";
 char c;
 
 void setup() {
+	// Initialize the RELAY
 	pinMode(RELE, OUTPUT);
 	digitalWrite(RELE, LOW);
 	delay(500);
@@ -16,15 +51,19 @@ void setup() {
 	delay(500);
 	digitalWrite(RELE, LOW);
 
-	mySerial.begin(19200);    // the GPRS baud rate   
-	Serial.begin(19200);      // the GPRS baud rate 
+	// Initialize the serial communication to the GPRS and PC
+	mySerial.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
+	Serial.begin(PC_SERIAL_SPEED);		// the PC Serial interface boud rate
+
 	delay(500);
-	mySerial.print("AT+CLIP=1\r");
 	while(1) {
 		if (mySerial.available()) {
 			c = mySerial.read();
 			Serial.print(c);
-			if ( c == 'K' ) {
+// SIM900 ending
+//			if ( c == 'K' ) {
+// SM5100B ending
+			if ( c == '3' ) {
 				Serial.print("\n");
 				break;
 			}
@@ -173,6 +212,5 @@ int match_num(char *in, char *my) {
 	}
 	return 1;
 } 
-
 
 /* vim: setlocal ft=cpp: */
