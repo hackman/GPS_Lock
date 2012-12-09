@@ -45,30 +45,18 @@ char c;
 void setup() {
 	// Initialize the RELAY
 	pinMode(UNLOCK_PIN, OUTPUT);
+
+#ifdef DEBUG
 	digitalWrite(UNLOCK_PIN, LOW);
 	delay(500);
 	digitalWrite(UNLOCK_PIN, HIGH);
 	delay(500);
+#endif
 	digitalWrite(UNLOCK_PIN, LOW);
 
 	// Initialize the serial communication to the GPRS and PC
 	cell.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
-	Serial.begin(PC_SERIAL_SPEED);		// the PC Serial interface boud rate
-
-	delay(500);
-	while(1) {
-		if (cell.available()) {
-			c = cell.read();
-			Serial.print(c);
-// SIM900 ending
-//			if ( c == 'K' ) {
-// SM5100B ending
-			if ( c == '3' ) {
-				Serial.print("\n");
-				break;
-			}
-		}
-	}
+	Serial.begin(PC_SERIAL_SPEED);	// the PC Serial interface boud rate
 }
  
 void loop() {
