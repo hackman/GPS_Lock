@@ -30,12 +30,12 @@
 
 /* SIM900 configuration
 NewSoftSerial cell = NewSoftSerial(7, 8);
-#define RELE 2
+#define UNLOCK_PIN 2
 #define CELL_SERIAL_SPEED 19200
 */
 
 NewSoftSerial cell = NewSoftSerial(2, 3);
-#define RELE 7
+#define UNLOCK_PIN 7
 #define CELL_SERIAL_SPEED 9600
 
 char *mynum  =  "359886660270";
@@ -44,12 +44,12 @@ char c;
 
 void setup() {
 	// Initialize the RELAY
-	pinMode(RELE, OUTPUT);
-	digitalWrite(RELE, LOW);
+	pinMode(UNLOCK_PIN, OUTPUT);
+	digitalWrite(UNLOCK_PIN, LOW);
 	delay(500);
-	digitalWrite(RELE, HIGH);
+	digitalWrite(UNLOCK_PIN, HIGH);
 	delay(500);
-	digitalWrite(RELE, LOW);
+	digitalWrite(UNLOCK_PIN, LOW);
 
 	// Initialize the serial communication to the GPRS and PC
 	cell.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
