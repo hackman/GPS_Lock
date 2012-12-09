@@ -37,10 +37,35 @@ NewSoftSerial cell = NewSoftSerial(7, 8);
 NewSoftSerial cell = NewSoftSerial(2, 3);
 #define UNLOCK_PIN 7
 #define CELL_SERIAL_SPEED 9600
+#define BUFSIZE 512
 
 char *mynum  =  "359886660270";
 char *karpov =  "359885888444";
-char c;
+char c = '\0';
+char line[BUFSIZE] = {'\0'};
+char line_pos = 0;
+
+void read_resp() {
+	char c;
+	int ready_chars = 0;
+	line_pos = 0;   // Reset array counter
+	memset(line, '\0', BUFSIZE);
+	ready_chars = cell.available();
+
+	if (ready_chars <= 0)   // No characters for reading.
+		return;
+	for (int i = 1; i <= ready_chars; i++) {
+		if ( line_pos == BUFSIZE - 2)
+			return;
+		c = cell.read();
+		Serial.print(c);
+		line[line_pos] = c;
+		line_pos++;
+	}
+	Serial.println("Parsed line:");
+	Serial.println(line);
+	return;
+}
 
 void setup() {
 	// Initialize the RELAY
