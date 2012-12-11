@@ -25,6 +25,7 @@
 
 #include <NewSoftSerial.h>
 
+#define DEBUG
 #define BUFFSIZ 90 // plenty big
 #define PC_SERIAL_SPEED 19200
 
@@ -41,31 +42,114 @@ NewSoftSerial cell = NewSoftSerial(2, 3);
 
 char *mynum  =  "359886660270";
 char *karpov =  "359885888444";
-char c = '\0';
 char line[BUFSIZE] = {'\0'};
 char line_pos = 0;
 
+int gprs_connected = 0;
+int gprs_initialized = 0;
+
+int unlock = 0;
+char phone_num[16] = {'\0'};
+char *phone = phone_num;
+
 void read_resp() {
 	char c;
-	int ready_chars = 0;
 	line_pos = 0;   // Reset array counter
 	memset(line, '\0', BUFSIZE);
-	ready_chars = cell.available();
 
-	if (ready_chars <= 0)   // No characters for reading.
-		return;
-	for (int i = 1; i <= ready_chars; i++) {
-		if ( line_pos == BUFSIZE - 2)
-			return;
+	while ( cell.available() > 0 && line_pos < BUFSIZE ) {
 		c = cell.read();
+#ifdef DEBUG
 		Serial.print(c);
+#endif
 		line[line_pos] = c;
 		line_pos++;
+		if ( c == '\n' )
+			return;
 	}
-	Serial.print("Parsed line: |");
-	Serial.print(line);
-	Serial.print("|\n");
+
 	return;
+}
+
+void configure_gprs(void) {
+	// Show remote caller ID
+	cell.println("AT+CLIP=1");
+	Serial.println("GSM set CLIP on. Now we will see incomming caller IDs.");
+	delay(1000);
+
+	// Set SMS MODE to TEXT
+	cell.println("AT+CMGF=1");
+	Serial.println("GSM set SMS MODE to TEXT.");
+	delay(1000);
+
+	// Display messages when received
+	cell.println("AT+CNMI=3,3,0,0");
+	Serial.println("GSM show SMS messages as they come in");
+	delay(1000);
+}
+
+void parse_resp(void) {
+	if (strstr(line, "+SIND: 11") != 0) {
+		Serial.println("GPRS module registered to network");
+		gprs_connected++;
+		return;
+	}
+	if (strstr(line, "+SIND: 4") != 0) {
+		Serial.println("GPRS module ready for AT commands");
+		gprs_initialized++;
+		configure_gprs();
+		return;
+	}
+}
+
+char * parse_phone(char *str) {
+	int quote_count = 0;
+	char phone_str[16] = {'\0'};
+	char *phone_ptr = phone_str;
+	memset(phone_str, '\0', 16);
+	for (int i = 0; i < BUFSIZE; i++) {
+		// End of the string
+		if (*str == '\0')
+			return phone_str;
+
+		// Quote found, increase the counter and move the pointer forward
+		if (*str == '"') {
+			quote_count++;
+			*str++;
+			continue;
+		}
+
+		// Copy the phone number
+		if (quote_count == 3) {
+			*phone_ptr = *str;
+			phone_ptr++;
+		}
+
+		// End of the phone number
+		if (quote_count == 4) {
+			return phone_str;
+		}
+		str++;
+	}
+}
+
+void read_sms(void) {
+	cell.println("AT+CMGL=\"ALL\"");
+	delay(5000);
+	while(cell.available() > 0) {
+		read_resp();
+		delay(1000);
+		if (strstr(line, "unlock") != 0 && strstr(line, "1234") != 0) {
+			Serial.println("Found command UNLOCK and matched security code.");
+			unlock = 1;
+			break;
+		}
+		if (strstr(line, "+CMGL") != 0) {
+			Serial.print("\nPhone: ");
+			Serial.print(parse_phone(line));
+			Serial.print("\n");
+		}
+	}
 }
 
 void setup() {
@@ -84,9 +168,15 @@ void setup() {
 	cell.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
 	Serial.begin(PC_SERIAL_SPEED);	// the PC Serial interface boud rate
 }
- 
-void loop() {
 
+void loop() {
+	while (gprs_connected == 0 || gprs_initialized == 0) {
+		read_resp();
+		delay(500);
+		parse_resp();
+	}
+	if (unlock == 0)
+		read_sms();
 }
 
 
