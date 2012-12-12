@@ -20,39 +20,46 @@
  *
  *
  *
- *  VERSION 0.3
+ *  VERSION 1.0
  */
 
 #include <NewSoftSerial.h>
 
 #define DEBUG
-#define BUFFSIZ 90 // plenty big
 #define PC_SERIAL_SPEED 19200
+#define BUFSIZE 512
+#define PHONE_SIZE 16
+#define PHONE_NUMBERS 2
+#define NUMBER_MM 		"359886660270"
+#define NUMBER_KARPOV	"359885888444"
 
-/* SIM900 configuration
+
+// SIM900 configuration (SeeedStudio)
+/*
 NewSoftSerial cell = NewSoftSerial(7, 8);
 #define UNLOCK_PIN 2
 #define CELL_SERIAL_SPEED 19200
 */
 
+// SM5100B configuration (SparkFun)
 NewSoftSerial cell = NewSoftSerial(2, 3);
 #define UNLOCK_PIN 7
 #define CELL_SERIAL_SPEED 9600
-#define BUFSIZE 512
 
-char *mynum  =  "359886660270";
-char *karpov =  "359885888444";
+
+char allowed[PHONE_NUMBERS][PHONE_SIZE];
 char line[BUFSIZE] = {'\0'};
 char line_pos = 0;
-
+char phone_str[PHONE_SIZE] = {'\0'};
+char *phone_ptr = phone_str;
 int gprs_connected = 0;
 int gprs_initialized = 0;
-
 int unlock = 0;
-char phone_num[16] = {'\0'};
-char *phone = phone_num;
+int list_sms = 0;
 
-void read_resp() {
+
+
+void read_resp(int stop_on_new_line) {
 	char c;
 	line_pos = 0;   // Reset array counter
 	memset(line, '\0', BUFSIZE);
@@ -64,10 +71,13 @@ void read_resp() {
 #endif
 		line[line_pos] = c;
 		line_pos++;
-		if ( c == '\n' )
+		if ( stop_on_new_line && c == '\n' ) {
+			line[line_pos] = '\0';
 			return;
+		}
 	}
 
+	line[line_pos] = '\0';
 	return;
 }
 
@@ -77,14 +87,14 @@ void configure_gprs(void) {
 	Serial.println("GSM set CLIP on. Now we will see incomming caller IDs.");
 	delay(1000);
 
-	// Set SMS MODE to TEXT
-	cell.println("AT+CMGF=1");
-	Serial.println("GSM set SMS MODE to TEXT.");
-	delay(1000);
-
 	// Display messages when received
 	cell.println("AT+CNMI=3,3,0,0");
 	Serial.println("GSM show SMS messages as they come in");
+	delay(1000);
+
+	// Set SMS MODE to TEXT
+	cell.println("AT+CMGF=1");
+	Serial.println("GSM set SMS MODE to TEXT.");
 	delay(1000);
 }
 
@@ -102,15 +112,14 @@ void parse_resp(void) {
 	}
 }
 
-char * parse_phone(char *str) {
+void parse_phone(char *str) {
 	int quote_count = 0;
-	char phone_str[16] = {'\0'};
-	char *phone_ptr = phone_str;
 	memset(phone_str, '\0', 16);
+
 	for (int i = 0; i < BUFSIZE; i++) {
 		// End of the string
 		if (*str == '\0')
-			return phone_str;
+			return;
 
 		// Quote found, increase the counter and move the pointer forward
 		if (*str == '"') {
@@ -119,37 +128,67 @@ char * parse_phone(char *str) {
 			continue;
 		}
 
+		// End of the phone number
+		if (quote_count == 4)
+			return;
+
 		// Copy the phone number
 		if (quote_count == 3) {
 			*phone_ptr = *str;
 			phone_ptr++;
 		}
 
-		// End of the phone number
-		if (quote_count == 4) {
-			return phone_str;
-		}
 		str++;
 	}
 }
 
+void check_sms() {
+	if (strstr(line, "unlock") != 0 && strstr(line, "1234") != 0) {
+		Serial.println("Found command UNLOCK and matched security code.");
+		unlock = 1;
+	}
+	if (strstr(line, "+CMGL") != 0) {
+		parse_phone(line);
+		Serial.print("\nPhone: ");
+		Serial.print(phone_str);
+		Serial.print("\n");
+		check_number(phone_str);
+	}
+}
+
 void read_sms(void) {
-	cell.println("AT+CMGL=\"ALL\"");
-	delay(5000);
-	while(cell.available() > 0) {
-		read_resp();
-		delay(1000);
-		if (strstr(line, "unlock") != 0 && strstr(line, "1234") != 0) {
-			Serial.println("Found command UNLOCK and matched security code.");
-			unlock = 1;
-			break;
-		}
-		if (strstr(line, "+CMGL") != 0) {
-			Serial.print("\nPhone: ");
-			Serial.print(parse_phone(line));
-			Serial.print("\n");
+	if (list_sms == 0) {
+		cell.println("AT+CMGL=\"ALL\"");
+		list_sms++;
+	}
+
+	read_resp(1);
+	check_sms();
+}
+
+int check_number(char *phone) {
+	Serial.print("\nPhone number (");
+	Serial.print(phone);
+	for (int i=0; i < PHONE_NUMBERS; i++) {
+		if (strncmp(phone, allowed[i], 12) == 0) {
+			Serial.print(") MATCHED\n");
+			return 1;
 		}
 	}
+	Serial.print(") NOT matched\n");
+	return 0;
+}
+
+void add_numbers(void) {
+	Serial.println("Allowed phone numbers:");
+
+	memset(allowed[0], '\0', PHONE_SIZE);
+	strcat(allowed[0], NUMBER_MM);
+	Serial.println(allowed[0]);
+
+	memset(allowed[1], '\0', PHONE_SIZE);
+	strcat(allowed[1], NUMBER_KARPOV);
+	Serial.println(allowed[1]);
 }
 
 void setup() {
@@ -167,17 +206,35 @@ void setup() {
 	// Initialize the serial communication to the GPRS and PC
 	cell.begin(CELL_SERIAL_SPEED);	// the GPRS baud rate
 	Serial.begin(PC_SERIAL_SPEED);	// the PC Serial interface boud rate
+
+	add_numbers();
 }
 
 void loop() {
 	while (gprs_connected == 0 || gprs_initialized == 0) {
-		read_resp();
+		read_resp(1);
 		delay(500);
 		parse_resp();
 	}
 	if (unlock == 0)
 		read_sms();
+
+// This is used for debuging and manual testing
+//	DirectToSerial();
+
 }
 
+void DirectToSerial(void) {
+	char c;
+	if (cell.available() > 0) {
+		c = cell.read();
+		Serial.print(c);
+	}
+	if (Serial.available() > 0) {
+		c = Serial.read();
+		Serial.print(c);
+		cell.print(c);
+	}
+}
 
 /* vim: setlocal ft=cpp: */
